@@ -4,18 +4,16 @@ use std::{
   iter::once,
   ops::{Deref, DerefMut},
 };
-
 use bytes::{BufMut, BytesMut};
-use nom::Offset;
-use crate::parser::{expand_question, parse_domains};
-
-const HEADER_LENGTH: usize = 12;
+use crate::parser::parse_domains;
 
 pub struct Message(BytesMut);
-
 impl Message {
   pub fn new() -> Self {
-    Self(BytesMut::zeroed(HEADER_LENGTH))
+    Self(BytesMut::zeroed(12))
+  }
+  pub fn from(data: &[u8]) -> Self {
+    Self(BytesMut::from(data))
   }
   pub fn id(&self) -> u16 {
     u16::from_be_bytes([self[0], self[1]])
@@ -44,47 +42,12 @@ impl Message {
   pub fn question_count(&self) -> u16 {
     u16::from_be_bytes([self[4], self[5]])
   }
-  pub fn set_question_count(&mut self, count: u16) {
-    self[4..6].copy_from_slice(&count.to_be_bytes());
-  }
-  pub fn answer_count(&self) -> u16 {
-    u16::from_be_bytes([self[6], self[7]])
-  }
-  pub fn set_answer_count(&mut self, count: u16) {
-    self[6..8].copy_from_slice(&count.to_be_bytes());
-  }
-  pub fn original_questions(&self) -> Vec<&[u8]> {
-    let (_, questions) = parse_domains(&self[HEADER_LENGTH..], self.question_count() as usize).unwrap();
+
+  pub fn questions(&self) -> Vec<&[u8]> {
+    let (_, questions) = parse_domains(&self[12..], self.question_count() as usize).unwrap();
     questions
   }
-  
-  pub fn expanded_questions(&self) -> Vec<BytesMut> {
-    let mut res = Vec::new();
-    let mut qc = self.question_count();
-    let mut offset = HEADER_LENGTH;
-    loop {
-      let (r, question) = expand_question(self, offset).unwrap();
-      res.push(question);
-      qc -= 1;
-      if qc == 0 {
-        break;
-      }
-      offset = (self).offset(r);
-    }
-    res
-  }
 
-  pub fn add_question(&mut self, question: &[u8]) {
-    assert_eq!(self.answer_count(), 0);
-    self.put(question);
-    self.set_question_count(self.question_count() + 1);
-  }
-
-  pub fn add_answer(&mut self, answer: &[u8]) {
-    self.put(answer);
-    self.set_answer_count(self.answer_count() + 1);
-  }
-  
   pub fn answer_question(&mut self, question: &[u8], ttl: u32, data: &[u8]) {
     self.put(question);
     self.put_u32(ttl);
@@ -92,12 +55,6 @@ impl Message {
     self.put(data);
     let answer_count = u16::from_be_bytes([self[6], self[7]]) + 1;
     self[6..8].copy_from_slice(&answer_count.to_be_bytes());
-  }
-}
-
-impl From<&[u8]> for Message {
-  fn from(value: &[u8]) -> Self {
-    Self(BytesMut::from(value))
   }
 }
 
