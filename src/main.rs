@@ -25,7 +25,7 @@ fn forward_question(message: Message, addr: &str) -> BytesMut {
   }
 }
 
-fn handleDataGram(received_data: Bytes, source: SocketAddr, udp_socket: &UdpSocket) {
+fn handle_data_graph(received_data: Bytes, source: SocketAddr, udp_socket: &UdpSocket) {
   eprintln!("received data: {:02X?}", received_data);
   let mut message = Message::from(&received_data[..]);
   let questions = message.expanded_questions();
@@ -58,7 +58,7 @@ fn main() {
     match udp_socket.recv_from(&mut buf) {
       Ok((size, source)) => {
         println!("Received {} bytes from {}", size, source);
-        handleDataGram(Bytes::copy_from_slice(&buf[..size]), source, &udp_socket);
+        handle_data_graph(Bytes::copy_from_slice(&buf[..size]), source, &udp_socket);
       }
       Err(e) => {
         eprintln!("Error receiving data: {}", e);
