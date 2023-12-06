@@ -28,7 +28,6 @@ pub enum DomainPart<'a> {
   Pointer(usize),
   Label(&'a [u8]),
   Terminator,
-  Terminator,
 }
 
 pub fn parse_pointer(i: &[u8]) -> IResult<&[u8], DomainPart> {
