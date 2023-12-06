@@ -67,41 +67,41 @@ pub fn parse_domains(i: &[u8], cnt: usize) -> IResult<&[u8], Vec<&[u8]>> {
   count(parse_domain, cnt)(i)
 }
 
-// pub fn expand_question(i: &[u8], offset: usize) -> IResult<&[u8], BytesMut> {
-//   let (r, (labels, ptr_or_ter)) = many_till(parse_label, alt((parse_terminator, parse_pointer)))(&i[offset..])?;
-//   let mut res = BytesMut::new();
-//   for label in labels {
-//     let DomainPart::Label(label) = label else {
-//       continue;
-//     };
-//     res.put_u8(label.len() as u8);
-//     res.put(label);
-//   }
-//   match ptr_or_ter {
-//     DomainPart::Pointer(ptr) => {
-//       let (_, mut question) = expand_question(i, ptr)?;
-//       res.put(question.split_to(question.len() - 4));
-//     }
-//     DomainPart::Terminator => res.put_u8(0),
-//     DomainPart::Label(label) => {
-//       panic!("ptr_or_ter cannot be a label: {label:?}")
-//     }
-//   }
-//   let (r, record_type_class) = take(4usize)(r)?;
-//   res.put(record_type_class);
-//   Ok((r, res))
-// }
+pub fn expand_question(i: &[u8], offset: usize) -> IResult<&[u8], BytesMut> {
+  let (r, (labels, ptr_or_ter)) = many_till(parse_label, alt((parse_terminator, parse_pointer)))(&i[offset..])?;
+  let mut res = BytesMut::new();
+  for label in labels {
+    let DomainPart::Label(label) = label else {
+      continue;
+    };
+    res.put_u8(label.len() as u8);
+    res.put(label);
+  }
+  match ptr_or_ter {
+    DomainPart::Pointer(ptr) => {
+      let (_, mut question) = expand_question(i, ptr)?;
+      res.put(question.split_to(question.len() - 4));
+    }
+    DomainPart::Terminator => res.put_u8(0),
+    DomainPart::Label(label) => {
+      panic!("ptr_or_ter cannot be a label: {label:?}")
+    }
+  }
+  let (r, record_type_class) = take(4usize)(r)?;
+  res.put(record_type_class);
+  Ok((r, res))
+}
 
-// pub fn expand_answer(i: &[u8], offset: usize) -> IResult<&[u8], BytesMut> {
-//   let (r, mut question) = expand_question(i, offset)?;
-//   let (r, ttl) = take(4usize)(r)?;
-//   question.put(ttl);
-//   let (r, length) = be_u16(r)?;
-//   question.put_u16(length);
-//   let (r, data) = take(length)(r)?;
-//   question.put(data);
-//   Ok((r, question))
-// }
+pub fn expand_answer(i: &[u8], offset: usize) -> IResult<&[u8], BytesMut> {
+  let (r, mut question) = expand_question(i, offset)?;
+  let (r, ttl) = take(4usize)(r)?;
+  question.put(ttl);
+  let (r, length) = be_u16(r)?;
+  question.put_u16(length);
+  let (r, data) = take(length)(r)?;
+  question.put(data);
+  Ok((r, question))
+}
 
 #[test]
 fn test_expand_question() {

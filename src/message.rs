@@ -84,6 +84,7 @@ impl Message {
     self.put(answer);
     self.set_answer_count(self.answer_count() + 1);
   }
+  
   pub fn answer_question(&mut self, question: &[u8], ttl: u32, data: &[u8]) {
     self.put(question);
     self.put_u32(ttl);
