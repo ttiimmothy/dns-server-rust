@@ -6,6 +6,7 @@
     "MSVC",
     "rcode",
     "rustc",
-    "rustfmt"
+    "rustfmt",
+    "unsplit"
   ]
 }
