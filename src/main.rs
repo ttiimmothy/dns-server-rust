@@ -9,7 +9,23 @@ use parser::{expand_answer, expand_question};
 mod message;
 mod parser;
 
-fn handleDataGram(received_data: Bytes, source: SocketAddr, udp_socket: &UdpSocket) {
+fn forward_question(message: Message, addr: &str) -> BytesMut {
+  let socket = UdpSocket::bind("127.0.0.1:0").expect("failed to bind to a new system assigned port");
+  socket.connect(addr).unwrap_or_else(|e| panic!("error connecting to resolver: {e}"));
+  socket.send(&message).unwrap_or_else(|e| panic!("error sending message: {e}"));
+  let mut buf = [0u8; 512];
+  match socket.recv(&mut buf) {
+    Ok(size) => {
+      let response = &buf[..size];
+      let (r, _) = expand_question(response, 12).unwrap_or_else(|e| panic!("expand question error: {e}"));
+      let (_, answer) = expand_answer(response, response.offset(r)).unwrap_or_else(|e| panic!("expand answer error: {e}"));
+      answer
+    }
+    Err(e) => panic!("receive from resolver: {e}"),
+  }
+}
+
+fn handle_data_graph(received_data: Bytes, source: SocketAddr, udp_socket: &UdpSocket) {
   eprintln!("received data: {:02X?}", received_data);
   let mut message = Message::from(&received_data[..]);
   let questions = message.expanded_questions();
@@ -35,22 +51,6 @@ fn handleDataGram(received_data: Bytes, source: SocketAddr, udp_socket: &UdpSock
   udp_socket.send_to(&message, source).expect("Failed to send response");
 }
 
-fn forward_question(message: Message, addr: &str) -> BytesMut {
-  let socket = UdpSocket::bind("127.0.0.1:0").expect("failed to bind to a new system assigned port");
-  socket.connect(addr).unwrap_or_else(|e| panic!("error connecting to resolver: {e}"));
-  socket.send(&message).unwrap_or_else(|e| panic!("error sending message: {e}"));
-  let mut buf = [0u8; 512];
-  match socket.recv(&mut buf) {
-    Ok(size) => {
-      let response = &buf[..size];
-      let (r, _) = expand_question(response, 12).unwrap_or_else(|e| panic!("expand question error: {e}"));
-      let (_, answer) = expand_answer(response, response.offset(r)).unwrap_or_else(|e| panic!("expand answer error: {e}"));
-      answer
-    }
-    Err(e) => panic!("receive from resolver: {e}"),
-  }
-}
-
 fn main() {
   let udp_socket = UdpSocket::bind("127.0.0.1:2053").expect("Failed to bind to address");
   let mut buf = [0; 512];
@@ -58,7 +58,7 @@ fn main() {
     match udp_socket.recv_from(&mut buf) {
       Ok((size, source)) => {
         println!("Received {} bytes from {}", size, source);
-        handleDataGram(Bytes::copy_from_slice(&buf[..size]), source, &udp_socket);
+        handle_data_graph(Bytes::copy_from_slice(&buf[..size]), source, &udp_socket);
       }
       Err(e) => {
         eprintln!("Error receiving data: {}", e);
