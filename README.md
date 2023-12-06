@@ -1,5 +1,8 @@
 [![progress-banner](https://backend.codecrafters.io/progress/dns-server/d003e448-6781-4a84-b2f5-7a0aebf0adb8)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
+# DNS Server Rust
+[![ci](https://github.com/ttiimmothy/dns-server-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/ttiimmothy/dns-server-rust/actions/workflows/ci.yml)
+
 This is a starting point for Rust solutions to the
 ["Build Your Own DNS server" Challenge](https://app.codecrafters.io/courses/dns-server/overview).
 
@@ -31,8 +34,12 @@ Time to move on to the next stage!
 Note: This section is for stages 2 and beyond.
 
 1. Ensure you have `cargo (1.70)` installed locally
-1. Run `./your_server.sh` to run your program, which is implemented in
+2. Run `./your_server.sh` to run your program, which is implemented in
    `src/main.rs`. This command compiles your Rust project, so it might be slow
    the first time you run it. Subsequent runs will be fast.
-1. Commit your changes and run `git push origin master` to submit your solution
+3. Commit your changes and run `git push origin master` to submit your solution
    to CodeCrafters. Test output will be streamed to your terminal.
+
+## License
+
+DNS Server Rust is licensed under [GNU General Public License v3.0](LICENSE).
