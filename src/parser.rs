@@ -118,10 +118,7 @@ fn test_expand_question() {
   );
   let (r, question) = expand_question(i, i.offset(r)).unwrap();
   assert_eq!(r, b"");
-  assert_eq!(
-    question.as_ref(),
-    b"\x03def\x11longassdomainname\x03com\0\0\x01\0\x01"
-  );
+  assert_eq!(question.as_ref(),b"\x03def\x11longassdomainname\x03com\0\0\x01\0\x01");
 }
 
 #[test]
