@@ -1,18 +1,21 @@
 #![allow(dead_code)]
 use std::{
-    iter::once,
-    ops::{Deref, DerefMut},
+  fmt::Debug,
+  iter::once,
+  ops::{Deref, DerefMut},
 };
+
 use bytes::{BufMut, BytesMut};
+use nom::Offset;
+use crate::parser::{expand_question, parse_domains};
+
+const HEADER_LENGTH: usize = 12;
 
 pub struct Message(BytesMut);
 
 impl Message {
   pub fn new() -> Self {
-    Self(BytesMut::zeroed(12))
-  }
-  pub fn from(data: &[u8]) -> Self {
-    Self(BytesMut::from(data))
+    Self(BytesMut::zeroed(HEADER_LENGTH))
   }
   pub fn id(&self) -> u16 {
     u16::from_be_bytes([self[0], self[1]])
@@ -38,24 +41,62 @@ impl Message {
   pub fn set_rcode(&mut self, rcode: u8) {
     self[3] = (self[3] & 0b1111_0000) | (0b0000_1111 & rcode)
   }
-
-  pub fn add_question(&mut self, name: &str, record_type: u16, class: u16) {
-    self.unsplit(encode_domain(name));
-    self.put_u16(record_type);
-    self.put_u16(class);
-    let question_count = u16::from_be_bytes([self[4], self[5]]) + 1;
-    self[4..6].copy_from_slice(&question_count.to_be_bytes());
+  pub fn question_count(&self) -> u16 {
+    u16::from_be_bytes([self[4], self[5]])
+  }
+  pub fn set_question_count(&mut self, count: u16) {
+    self[4..6].copy_from_slice(&count.to_be_bytes());
+  }
+  pub fn answer_count(&self) -> u16 {
+    u16::from_be_bytes([self[6], self[7]])
+  }
+  pub fn set_answer_count(&mut self, count: u16) {
+    self[6..8].copy_from_slice(&count.to_be_bytes());
+  }
+  pub fn original_questions(&self) -> Vec<&[u8]> {
+    let (_, questions) = parse_domains(&self[HEADER_LENGTH..], self.question_count() as usize).unwrap();
+    questions
+  }
+  
+  pub fn expanded_questions(&self) -> Vec<BytesMut> {
+    let mut res = Vec::new();
+    let mut qc = self.question_count();
+    let mut offset = HEADER_LENGTH;
+    loop {
+      let (r, question) = expand_question(self, offset).unwrap();
+      res.push(question);
+      qc -= 1;
+      if qc == 0 {
+        break;
+      }
+      offset = (self).offset(r);
+    }
+    res
   }
 
-  pub fn add_answer(&mut self, name: &str, record_type: u16, class: u16, ttl: u32, data: u32) {
-    self.unsplit(encode_domain(name));
-    self.put_u16(record_type);
-    self.put_u16(class);
+  pub fn add_question(&mut self, question: &[u8]) {
+    assert_eq!(self.answer_count(), 0);
+    self.put(question);
+    self.set_question_count(self.question_count() + 1);
+  }
+
+  pub fn add_answer(&mut self, answer: &[u8]) {
+    self.put(answer);
+    self.set_answer_count(self.answer_count() + 1);
+  }
+  pub fn answer_question(&mut self, question: &[u8], ttl: u32, data: &[u8]) {
+    self.put(question);
     self.put_u32(ttl);
-    self.put_u16(4u16);
-    self.put_u32(data);
+    self.put_u16(data.len() as u16);
+    self.put(data);
     let answer_count = u16::from_be_bytes([self[6], self[7]]) + 1;
     self[6..8].copy_from_slice(&answer_count.to_be_bytes());
+  }
+}
+
+impl From<&[u8]> for Message {
+  fn from(value: &[u8]) -> Self {
+    Self(BytesMut::from(value))
   }
 }
 
@@ -69,6 +110,12 @@ impl Deref for Message {
 impl DerefMut for Message {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.0
+  }
+}
+
+impl Debug for Message {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    self.0.fmt(f)
   }
 }
 
